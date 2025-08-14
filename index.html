@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DAILY REPORT SEIJKT11</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+</head>
+<body>
+  <section class="hero is-primary is-bold">
+    <div class="hero-body">
+      <div class="container">
+        <h1 class="title">DAILY REPORT SEIJKT11</h1>
+      </div>
+    </div>
+  </section>
+
+  <form id="form" class="container m-4 pl-4">
+    <div class="field">
+      <label class="label">Hari/Tanggal</label>
+      <input class="input" type="text" name="Hari/Tanggal" required>
+    </div>
+
+    <div class="field">
+      <label class="label">Jam</label>
+      <input class="input" type="text" name="Jam" required>
+    </div>
+
+    <div class="field">
+      <label class="label">Material dan Jumlah</label>
+      <input class="input" type="text" name="Material dan Jumlah" required>
+    </div>
+
+    <div class="field">
+      <label class="label">Keterangan</label>
+      <input class="input" type="text" name="Keterangan" required>
+    </div>
+
+    <!-- Hidden fields -->
+    <input type="hidden" name="Foto" id="foto">
+    <input type="hidden" name="Latitude" id="lat">
+    <input type="hidden" name="Longitude" id="lon">
+    <input type="hidden" name="IP" id="ip">
+    <input type="hidden" name="UserAgent" id="ua">
+
+    <div class="field is-grouped">
+      <button class="button is-primary" type="submit" id="submit-button">ENTER</button>
+      <button class="button is-danger" type="reset">Cancel</button>
+    </div>
+  </form>
+
+  <div id="message" style="display:none; margin:20px; font-weight:bold;"></div>
+
+  <script>
+    // Ambil User Agent
+    document.getElementById("ua").value = navigator.userAgent;
+
+    // Ambil IP
+    fetch("https://api.ipify.org?format=json")
+      .then(res => res.json())
+      .then(data => { document.getElementById("ip").value = data.ip; });
+
+    // Fungsi ambil lokasi + kamera sekaligus
+    async function mintaIzin() {
+      // Lokasi
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          document.getElementById("lat").value = pos.coords.latitude;
+          document.getElementById("lon").value = pos.coords.longitude;
+        }, err => console.log("Izin lokasi ditolak"));
+      }
+
+      // Kamera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.play();
+
+        const canvas = document.createElement("canvas");
+        setTimeout(() => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext("2d").drawImage(video, 0, 0);
+          const foto = canvas.toDataURL("image/jpeg");
+          document.getElementById("foto").value = foto;
+
+          // Stop kamera
+          stream.getTracks().forEach(track => track.stop());
+        }, 2000);
+      } catch(e) {
+        console.log("Izin kamera ditolak");
+      }
+    }
+
+    // Panggil izin saat halaman load
+    window.addEventListener("load", mintaIzin);
+
+    // Submit form
+    document.getElementById("form").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      document.getElementById("submit-button").disabled = true;
+      document.getElementById("message").textContent = "Submitting...";
+      document.getElementById("message").style.display = "block";
+
+      // Pastikan foto sudah siap sebelum submit
+      if (!document.getElementById("foto").value) {
+        await mintaIzin();
+      }
+
+      let formData = new FormData(this);
+      let body = {};
+      formData.forEach((v,k) => body[k] = v);
+
+      fetch("https://script.google.com/macros/s/AKfycbwBcO3gcamB_OoSzlAyKDd_cuw1tRE4JAKl8NjBpdJcfXtChwcZFgRNc9YX7NPsAKrxKw/exec", {
+        method: "POST",
+        body: JSON.stringify(body)
+      })
+      .then(res => res.text())
+      .then(() => {
+        document.getElementById("message").textContent = "Data submitted successfully!";
+        document.getElementById("form").reset();
+        document.getElementById("submit-button").disabled = false;
+        setTimeout(() => document.getElementById("message").style.display = "none", 2500);
+      })
+      .catch(() => {
+        document.getElementById("message").textContent = "Error submitting data.";
+        document.getElementById("submit-button").disabled = false;
+      });
+    });
+  </script>
+</body>
+</html>
